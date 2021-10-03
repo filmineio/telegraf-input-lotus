@@ -1,0 +1,12 @@
+[Unit]
+Description=Lotus Miner
+
+[Service]
+User=root
+Group=root
+Environment="LOTUS_SKIP_GENESIS_CHECK=_yes_"
+ExecStart=/lotus/lotus-miner run \
+  --nosync
+
+[Install]
+WantedBy=multi-user.target
