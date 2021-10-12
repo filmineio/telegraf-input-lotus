@@ -13,3 +13,6 @@ clean:
 # A much better alternative to 'ls' https://the.exa.website/
 overview:
 	exa -lhTa --no-user --no-time -I ".git|.vagrant"
+
+dev:
+	cd env && vagrant up

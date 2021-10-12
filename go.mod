@@ -1,4 +1,4 @@
-module github.com/TheDivic/telegraf-input-lotus
+module github.com/filmineio/telegraf-input-lotus
 
 go 1.17
 
