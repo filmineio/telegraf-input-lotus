@@ -14,5 +14,9 @@ clean:
 overview:
 	exa -lhTa --no-user --no-time -I ".git|.vagrant"
 
-dev:
-	cd env && vagrant up
+restart: 
+	sudo systemctl restart telegraf
+
+rundev: build
+	./bin/telegraf-input-lotus -config ./bin/telegraf-input-lotus.conf
+

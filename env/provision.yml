@@ -1,0 +1,346 @@
+---
+- hosts: all
+  become: yes
+  environment:
+    LOTUS_SKIP_GENESIS_CHECK: "_yes_"
+
+  tasks:
+    # Build lotus from source
+    - name: Install system dependencies for lotus
+      apt:
+        pkg:
+          - mesa-opencl-icd
+          - ocl-icd-opencl-dev
+          - gcc
+          - git
+          - bzr
+          - jq
+          - pkg-config
+          - curl
+          - clang
+          - build-essential
+          - hwloc
+          - libhwloc-dev
+          - wget
+        update_cache: yes
+
+    - name: Download Golang
+      get_url:
+        url: https://golang.org/dl/go1.17.1.linux-amd64.tar.gz
+        dest: /
+      tags:
+        - golang
+
+    - name: Delete existing Golang installation, if exists
+      file:
+        state: absent
+        path: /usr/local/go
+      tags:
+        - golang
+
+    - name: Unarchive the go .tar
+      unarchive:
+        src: /go1.17.1.linux-amd64.tar.gz
+        dest: /usr/local
+        remote_src: yes
+      tags:
+        - golang
+
+    - name: Add Go to $PATH
+      lineinfile: dest=/root/.bashrc line='export PATH=$PATH:/usr/local/go/bin' insertafter='EOF' regexp='export PATH=\$PATH:/usr/local/go/bin' state=present
+      tags:
+        - gopath
+
+    - name: Clone Lotus
+      git:
+        repo: 'https://github.com/filecoin-project/lotus.git'
+        dest: /lotus
+      tags:
+        - lotus
+
+    - name: Build with 2k sectors
+      make:
+        chdir: /lotus
+        target: 2k
+      environment:
+        PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
+      tags:
+        - lotus
+
+    # Setup & Run the lotus daemon in devnet
+    # Based on: https://docs.filecoin.io/build/local-devnet/#manual-set-up
+    - name: Grab the 2048 byte parameters
+      shell: ./lotus fetch-params 2048
+      args:
+        chdir: /lotus
+      tags:
+        - lotus
+        - lotus-daemon
+
+    - name: Pre-seal some sectors for the genesis block
+      shell: ./lotus-seed pre-seal --sector-size 2KiB --num-sectors 2
+      args:
+        chdir: /lotus
+      tags:
+        - lotus
+        - lotus-daemon
+
+    - name: Create the genesis block
+      shell: ./lotus-seed genesis new localnet.json
+      args:
+        chdir: /lotus
+      tags:
+        - lotus
+        - lotus-daemon
+
+    - name: Fund the default account with some FIL
+      shell: ./lotus-seed genesis add-miner localnet.json ~/.genesis-sectors/pre-seal-t01000.json
+      args:
+        chdir: /lotus
+      tags:
+        - lotus
+        - lotus-daemon
+
+    - name: Copy lotus systemd service file to server
+      copy:
+        src: ./services/lotus.service
+        dest: /etc/systemd/system
+        owner: root
+        group: root
+      tags:
+        - lotus
+        - lotus-daemon
+
+    - name: Start lotus
+      systemd:
+        name: lotus
+        state: started
+        enabled: yes
+      tags:
+        - lotus
+        - lotus-daemon
+
+    - name: Enable API access to lotus-daemon
+      lineinfile: 
+        path: '/root/.lotus/config.toml'
+        search_string: '#ListenAddress = "/ip4/127.0.0.1/tcp/1234/http"'
+        line: ' ListenAddress = "/ip4/127.0.0.1/tcp/1234/http"'
+        backup: yes
+      tags:
+        - lotus-api
+
+    - name: Restart lotus (config changed)
+      systemd:
+        name: lotus
+        state: restarted
+        enabled: yes
+      tags:
+        - lotus-api
+
+    - name: Import the genesis miner key
+      shell: /lotus/lotus wallet import --as-default ~/.genesis-sectors/pre-seal-t01000.key
+      retries: 5 # wait for lotus to become alive
+      delay: 5
+      register: result
+      until: result is not failed
+      tags:
+        - lotus
+        - lotus-daemon
+
+    # Setup and run the lotus-miner
+    - name: Setup the genesis miner
+      shell: /lotus/lotus-miner init --genesis-miner \
+        --actor=t01000 \
+        --sector-size=2KiB \
+        --pre-sealed-sectors=~/.genesis-sectors \
+        --pre-sealed-metadata=~/.genesis-sectors/pre-seal-t01000.json \
+        --nosync
+      tags:
+        - lotus
+        - lotus-miner
+
+    - name: Copy lotus-miner systemd service file to server
+      copy:
+        src: ./services/lotus-miner.service
+        dest: /etc/systemd/system
+        owner: root
+        group: root
+      tags:
+        - lotus
+        - lotus-miner
+
+    - name: Start lotus-miner
+      systemd:
+        name: lotus-miner
+        state: started
+        enabled: yes
+      tags:
+        - lotus
+        - lotus-miner
+
+    - name: Enable API access to lotus-miner
+      lineinfile: 
+        path: '/root/.lotusminer/config.toml'
+        search_string: '#ListenAddress = "/ip4/127.0.0.1/tcp/2345/http"'
+        line: ' ListenAddress = "/ip4/127.0.0.1/tcp/2345/http"'
+        backup: yes
+      tags:
+        - lotus-api
+
+    - name: Restart lotus-miner (config changed)
+      systemd:
+        name: lotus-miner
+        state: restarted
+        enabled: yes
+      tags:
+        - lotus-api
+
+    # DEPRECATED: The code directory is auto-synced through vagrant. 🔥 These tasks should be ran in production.
+    # Build the telegraf-input-lotus external plugin
+    # - name: Create input plugin directory
+    #   file:
+    #     state: directory
+    #     path: /telegraf-input-lotus
+    #   tags:
+    #     - plugin
+
+    # - name: Copy the telegraf lotus plugin code to remote
+    #   copy: src={{ item.src }} dest={{ item.dest }}
+    #   with_items:
+    #   - { src: '../go.mod', dest: '/telegraf-input-lotus/go.mod' }
+    #   - { src: '../go.sum', dest: '/telegraf-input-lotus/go.sum' }
+    #   - { src: '../Makefile', dest: '/telegraf-input-lotus/Makefile' }
+    #   - { src: '../cmd', dest: '/telegraf-input-lotus/' }
+    #   - { src: '../plugins', dest: '/telegraf-input-lotus/' }
+    #   tags:
+    #     - plugin
+
+    - name: Build the telegraph lotus input plugin
+      make:
+        chdir: /telegraf-input-lotus
+      environment:
+        PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
+      tags:
+        - plugin
+
+    - name: Get the lotus daemon token
+      command: cat /root/.lotus/token
+      register: daemontoken
+      tags:
+        - plugin
+
+    - name: Get the lotus miner token
+      command: cat /root/.lotusminer/token
+      register: minertoken
+      tags:
+        - plugin
+
+    - name: Copy the plugin conf
+      vars:
+        daemon_token: "{{ daemontoken.stdout }}"
+        miner_token: "{{ minertoken.stdout }}"
+      template:
+        src: ./conf/telegraf-input-lotus.conf.j2
+        dest: /telegraf-input-lotus/bin/telegraf-input-lotus.conf
+      tags:
+        - plugin
+
+    # Install, configure and start InfluxDB
+    - name: Import InfluxData GPG signing key
+      apt_key:
+        url: https://repos.influxdata.com/influxdb.key
+        state: present
+      tags:
+        - influx
+
+    - name: Add InfluxData repository
+      apt_repository:
+        repo: deb https://repos.influxdata.com/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable
+        state: present
+      tags:
+        - influx
+
+    - name: Install InfluxDB package
+      apt:
+        name: influxdb
+        state: latest
+        update_cache: yes
+      tags:
+        - influx
+
+    - name: Start InfluxDB service
+      systemd:
+        name: influxdb
+        state: started
+        enabled: yes
+      tags:
+        - influx
+
+    # Install, configure and start Telegraf Agent
+    - name: Install Telegraf package
+      apt:
+        name: telegraf
+        state: latest
+      tags:
+        - telegraf
+
+    - name: Copy conf
+      copy:
+        src: ./conf/telegraf.conf
+        dest: /etc/telegraf/telegraf.conf
+      tags:
+        - telegraf
+
+    - name: Start Telegraf service
+      systemd:
+        name: telegraf
+        state: started
+        enabled: yes
+      tags:
+        - telegraf
+
+    # Install, configure and start Kapacitor
+    - name: Install Kapacitor package
+      apt:
+        name: kapacitor
+        state: latest
+      tags:
+        - kapacitor
+
+    - name: Start Kapacitor service
+      systemd:
+        name: kapacitor
+        state: started
+        enabled: yes
+      tags:
+        - kapacitor
+
+    # Install, configure and start Chronograf
+    - name: Download the Chronograf package 
+      get_url:
+        url: https://dl.influxdata.com/chronograf/releases/chronograf_1.2.0~beta5_amd64.deb
+        dest: /
+      tags:
+        - chronograf
+
+    - name: Check if chronograf is installed
+      command: dpkg-query -W chronograf
+      register: chronograf_check_deb
+      failed_when: chronograf_check_deb.rc > 1
+      changed_when: chronograf_check_deb.rc == 1
+      tags:
+        - chronograf
+
+    - name: Install chronograf
+      apt: deb="/chronograf_1.2.0~beta5_amd64.deb"
+      when: chronograf_check_deb.rc == 1
+      tags:
+        - chronograf
+
+    - name: Start Chronograf service
+      systemd:
+        name: chronograf
+        state: started
+        enabled: yes
+      tags:
+        - chronograf
