@@ -2,11 +2,16 @@ package lotus
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	jsonrpc "github.com/filecoin-project/go-jsonrpc"
+	"github.com/filecoin-project/go-state-types/big"
 	lotusapi "github.com/filecoin-project/lotus/api"
+	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 )
@@ -55,20 +60,34 @@ func (s *LotusInput) Init() error {
 }
 
 func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
-	daemonStatus := fetchLotusInfo(s.DaemonAddr, s.DaemonToken)
+	daemonMetrics := fetchDaemonMetrics(s.DaemonAddr, s.DaemonToken)
+	minerMetrics := fetchMinerMetrics(s.MinerAddr, s.MinerToken)
+
+	measurements := map[string]interface{}{
+		"epoch":          daemonMetrics.Status.SyncStatus.Epoch,
+		"behind":         daemonMetrics.Status.SyncStatus.Behind,
+		"messagePeers":   daemonMetrics.Status.PeerStatus.PeersToPublishMsgs,
+		"blockPeers":     daemonMetrics.Status.PeerStatus.PeersToPublishBlocks,
+		"marketDeals":    len(minerMetrics.MarketDeals),
+		"retrievalDeals": len(minerMetrics.RetrievalDeals),
+		"balance":        daemonMetrics.Balance}
+
+	sectorsTotal := 0
+	for sectorState, count := range minerMetrics.SectorSummary {
+		measurements[fmt.Sprintf("sectors%s", sectorState)] = count
+		sectorsTotal += count
+	}
+	measurements["sectorsTotal"] = sectorsTotal
 
 	// TODO: Extract argument to struct
-	acc.AddFields(lotusMeasurement, map[string]interface{}{
-		"epoch":        daemonStatus.SyncStatus.Epoch,
-		"behind":       daemonStatus.SyncStatus.Behind,
-		"messagePeers": daemonStatus.PeerStatus.PeersToPublishMsgs,
-		"blockPeers":   daemonStatus.PeerStatus.PeersToPublishBlocks},
+	acc.AddFields(lotusMeasurement, measurements,
 		nil)
 
 	return nil
 }
 
-func fetchLotusInfo(host string, key string) lotusapi.NodeStatus {
+// TODO: Refactor this
+func fetchDaemonMetrics(host string, key string) DaemonMetrics {
 	authToken := key
 	headers := http.Header{"Authorization": []string{"Bearer " + authToken}}
 	addr := host
@@ -78,7 +97,7 @@ func fetchLotusInfo(host string, key string) lotusapi.NodeStatus {
 	closer, err := jsonrpc.NewMergeClient(context.Background(), "ws://"+addr+"/rpc/v0", "Filecoin", []interface{}{&daemonApi.Internal, &daemonApi.CommonStruct.Internal}, headers)
 	if err != nil {
 		log.Printf("addr: %s, token: %s", host, key)
-		log.Fatalf("connecting with lotus daemon failed: %s", err)
+		log.Fatalf("connecting with lotus-daemon failed: %s", err)
 	}
 	defer closer()
 
@@ -88,28 +107,74 @@ func fetchLotusInfo(host string, key string) lotusapi.NodeStatus {
 		log.Fatalf("calling daemon status: %s", err)
 	}
 
-	return status
+	addresses, err := daemonApi.WalletList(context.Background())
+	if err != nil {
+		log.Fatalf("calling Wallet List %s", err)
+	}
+
+	// ⚠️ Filecoin uses it's own "big" package (it's not the stdlib big) and it's quite clunky
+	totalBalance := big.Zero()
+	for _, addr := range addresses {
+		balance, err := daemonApi.WalletBalance(context.Background(), addr)
+		if err != nil {
+			log.Fatalf("calling Wallet Balance: %s", err)
+		}
+
+		totalBalance = big.Add(totalBalance, balance)
+	}
+
+	// TODO: Fetch granular balance information: vesting, available etc
+	// ⚠️  Influx doesn't support big.Int so we have to risk it with float64 conversions (shouldn't be a problem)
+	stringBalance := types.FIL(totalBalance).Unitless()
+	floatBalance, err := strconv.ParseFloat(stringBalance, 64)
+	if err != nil {
+		log.Fatalf("parsing balance: %s", err)
+	}
+
+	return DaemonMetrics{
+		Status:  status,
+		Balance: floatBalance,
+	}
 }
 
-// Miner info
-// Miner Balance:    34762.999 FIL
-//       PreCommit:  0
-//       Pledge:     2 aFIL
-//       Vesting:    26072.249 FIL
-//       Available:  8690.75 FIL
-// Market Balance:   0
-//        Locked:    0
-//        Available: 0
-// Worker Balance:   50000000 FIL
-// Total Spendable:  50008690.75 FIL
+func fetchMinerMetrics(minerAddr string, minerToken string) MinerMetrics {
+	headers := http.Header{"Authorization": []string{"Bearer " + minerToken}}
 
-// Sectors:
-// 	Total: 2
-// 	Proving: 2
+	// TODO: Persist connection in MinerClient struct, don't open it on every call
+	var minerApi lotusapi.StorageMinerStruct
+	closer, err := jsonrpc.NewMergeClient(context.Background(), "ws://"+minerAddr+"/rpc/v0", "Filecoin", []interface{}{&minerApi.Internal, &minerApi.CommonStruct.Internal}, headers)
+	if err != nil {
+		log.Printf("addr: %s, token: %s", minerAddr, minerToken)
+		log.Fatalf("connecting with lotus-miner failed: %s", err)
+	}
+	defer closer()
 
-// Storage Deals: 0, 0 B
+	sectorSummary, err := minerApi.SectorsSummary(context.Background())
+	if err != nil {
+		log.Fatalf("calling sectors summary: %s", err)
+	}
 
-// Retrieval Deals (complete): 0, 0 B
+	marketDeals, err := minerApi.MarketListDeals(context.Background())
+	if err != nil {
+		log.Fatalf("callung MarketListDeals: %s", err)
+	}
+
+	return MinerMetrics{
+		SectorSummary: sectorSummary,
+		MarketDeals:   marketDeals,
+	}
+}
+
+type MinerMetrics struct {
+	SectorSummary  map[lotusapi.SectorState]int
+	MarketDeals    []lotusapi.MarketDeal
+	RetrievalDeals []retrievalmarket.ProviderDealState
+}
+
+type DaemonMetrics struct {
+	Status  lotusapi.NodeStatus
+	Balance float64
+}
 
 func init() {
 	inputs.Add(pluginName, func() telegraf.Input { return &LotusInput{} })
