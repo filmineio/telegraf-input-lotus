@@ -9,3 +9,7 @@ build:
 
 clean:
 	rm -rf $(bin_dir)
+
+# A much better alternative to 'ls' https://the.exa.website/
+overview:
+	exa -lhTa --no-user --no-time -I ".git|.vagrant"
