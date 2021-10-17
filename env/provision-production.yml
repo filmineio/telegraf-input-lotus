@@ -1,0 +1,107 @@
+---
+- hosts: altlabs_tick
+  become: yes
+
+  tasks:
+    # Setup ufw before installing and running Influx
+    - name: Ensure ufw installed
+      apt: 
+        name: ufw
+        update_cache: true
+
+    - name: Allow ssh connections
+      ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: Add rate-limiting for ssh to prevent brute forcing
+      ufw:
+        rule: limit
+        port: ssh
+        proto: any
+
+    - name: Enable ufw and set default policy to reject everything
+      ufw:
+        state: enabled
+        policy: reject
+  
+    # Install, configure and start InfluxDB
+    - name: Import InfluxData GPG signing key
+      apt_key:
+        url: https://repos.influxdata.com/influxdb.key
+        state: present
+      tags:
+        - influx
+
+    - name: Add InfluxData repository
+      apt_repository:
+        repo: deb https://repos.influxdata.com/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable
+        state: present
+      tags:
+        - influx
+
+    - name: Install InfluxDB package
+      apt:
+        name: influxdb
+        state: latest
+        update_cache: yes
+      tags:
+        - influx
+
+    - name: Start InfluxDB service
+      systemd:
+        name: influxdb
+        state: started
+        enabled: yes
+      tags:
+        - influx
+
+    # # Install, configure and start Kapacitor
+    # - name: Install Kapacitor package
+    #   apt:
+    #     name: kapacitor
+    #     state: latest
+    #   tags:
+    #     - kapacitor
+
+    # - name: Start Kapacitor service
+    #   systemd:
+    #     name: kapacitor
+    #     state: started
+    #     enabled: yes
+    #   tags:
+    #     - kapacitor
+
+    # # Install, configure and start Chronograf
+    # - name: Download the Chronograf package 
+    #   get_url:
+    #     url: https://dl.influxdata.com/chronograf/releases/chronograf_1.2.0~beta5_amd64.deb
+    #     dest: /
+    #   tags:
+    #     - chronograf
+
+    # - name: Check if chronograf is installed
+    #   command: dpkg-query -W chronograf
+    #   register: chronograf_check_deb
+    #   failed_when: chronograf_check_deb.rc > 1
+    #   changed_when: chronograf_check_deb.rc == 1
+    #   tags:
+    #     - chronograf
+
+    # - name: Install chronograf
+    #   apt: deb="/chronograf_1.2.0~beta5_amd64.deb"
+    #   when: chronograf_check_deb.rc == 1
+    #   tags:
+    #     - chronograf
+
+    # - name: Start Chronograf service
+    #   systemd:
+    #     name: chronograf
+    #     state: started
+    #     enabled: yes
+    #   tags:
+    #     - chronograf
+  handlers:
+    - name: reload ufw
+      ufw:
+        state: reloaded
