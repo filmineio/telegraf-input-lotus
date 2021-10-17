@@ -21,6 +21,8 @@ daemonToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJBbGxvdyI6WyJyZWFkIiwid3Jp
 minerAddr = "127.0.0.1:2345"
 minerToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXX0.3VvvGysY9ZwUG6e3Bap0g2TVL-2tcjAJAb5Aw2kPcsk"
 ```
+If you want only metrics from daemon, set the miner address and token to `""` and vice-versa.
+
 
 Example Telegraf config section (`/etc/telegraf/telegraf.conf`):
 ```toml
@@ -44,7 +46,7 @@ Running the development environment:
 - `vagrant up`
 - `vagrant ssh`
 
-Building & running the code:
+Building & running the code (inside the virtual machine):
 - `make rundev`
 
 By default `make rundev` streams the plugin output metrics to `stdout`.

@@ -56,51 +56,51 @@
       tags:
         - influx
 
-    # # Install, configure and start Kapacitor
-    # - name: Install Kapacitor package
-    #   apt:
-    #     name: kapacitor
-    #     state: latest
-    #   tags:
-    #     - kapacitor
+    # Install, configure and start Kapacitor
+    - name: Install Kapacitor package
+      apt:
+        name: kapacitor
+        state: latest
+      tags:
+        - kapacitor
 
-    # - name: Start Kapacitor service
-    #   systemd:
-    #     name: kapacitor
-    #     state: started
-    #     enabled: yes
-    #   tags:
-    #     - kapacitor
+    - name: Start Kapacitor service
+      systemd:
+        name: kapacitor
+        state: started
+        enabled: yes
+      tags:
+        - kapacitor
 
-    # # Install, configure and start Chronograf
-    # - name: Download the Chronograf package 
-    #   get_url:
-    #     url: https://dl.influxdata.com/chronograf/releases/chronograf_1.2.0~beta5_amd64.deb
-    #     dest: /
-    #   tags:
-    #     - chronograf
+    # Install, configure and start Chronograf
+    - name: Download the Chronograf package 
+      get_url:
+        url: https://dl.influxdata.com/chronograf/releases/chronograf_1.2.0~beta5_amd64.deb
+        dest: /
+      tags:
+        - chronograf
 
-    # - name: Check if chronograf is installed
-    #   command: dpkg-query -W chronograf
-    #   register: chronograf_check_deb
-    #   failed_when: chronograf_check_deb.rc > 1
-    #   changed_when: chronograf_check_deb.rc == 1
-    #   tags:
-    #     - chronograf
+    - name: Check if chronograf is installed
+      command: dpkg-query -W chronograf
+      register: chronograf_check_deb
+      failed_when: chronograf_check_deb.rc > 1
+      changed_when: chronograf_check_deb.rc == 1
+      tags:
+        - chronograf
 
-    # - name: Install chronograf
-    #   apt: deb="/chronograf_1.2.0~beta5_amd64.deb"
-    #   when: chronograf_check_deb.rc == 1
-    #   tags:
-    #     - chronograf
+    - name: Install chronograf
+      apt: deb="/chronograf_1.2.0~beta5_amd64.deb"
+      when: chronograf_check_deb.rc == 1
+      tags:
+        - chronograf
 
-    # - name: Start Chronograf service
-    #   systemd:
-    #     name: chronograf
-    #     state: started
-    #     enabled: yes
-    #   tags:
-    #     - chronograf
+    - name: Start Chronograf service
+      systemd:
+        name: chronograf
+        state: started
+        enabled: yes
+      tags:
+        - chronograf
   handlers:
     - name: reload ufw
       ufw:
