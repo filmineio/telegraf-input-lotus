@@ -1,0 +1,13 @@
+# An (example) provisioning for production Telegraf agents
+---
+- hosts: altlabs_miners
+  become: yes
+
+  tasks:
+    # Build the telegraf-input-lotus plugin
+    - name: Clone a repo with separate git directory
+      git:
+        repo: https://github.com/filmineio/telegraf-input-lotus.git
+        dest: /telegraf-input-lotus
+
+    # TODO: Implement everything else
