@@ -89,11 +89,12 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 
 	// TODO: Extract argument to struct
 	acc.AddFields(lotusMeasurement, measurements, nil)
-
+	workerIDtoNameMap := map[string]string{}
 	for key, value := range minerMetrics.WorkerStats {
 		workerMeasurements := map[string]interface{}{}
 		workerMeasurements["worker_id"] = key.String()
 		workerMeasurements["name"] = value.Info.Hostname
+		workerIDtoNameMap[key.String()] = value.Info.Hostname
 		workerMeasurements["cpu_use"] = value.CpuUse
 		workerMeasurements["mem_physical"] = value.Info.Resources.MemPhysical
 		workerMeasurements["mem_used"] = value.Info.Resources.MemUsed
@@ -106,7 +107,8 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 		for _, job := range value {
 			jobMeasurements := map[string]interface{}{}
 			jobMeasurements["job_id"] = job.ID.ID.String()
-			jobMeasurements["worker_name"] = key.String()
+			jobMeasurements["worker_id"] = key.String()
+			jobMeasurements["worker_name"] = workerIDtoNameMap[key.String()]
 			jobMeasurements["sector"] = job.Sector.Number.String()
 			jobMeasurements["miner_id"] = job.Sector.Miner.String()
 			jobMeasurements["run_wait"] = job.RunWait
