@@ -10,6 +10,7 @@ import (
 const pluginName string = "telegraf-input-lotus"
 const lotusMeasurement string = "lotus"
 const lotusSealingWorkers string = "lotus_sealing_workers"
+const lotusSealingJobs string = "lotus_sealing_jobs"
 
 type LotusInput struct {
 	DaemonAddr  string          `toml:"daemonAddr"`
@@ -99,6 +100,21 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 		workerMeasurements["mem_swap_used"] = value.Info.Resources.MemSwapUsed
 		workerMeasurements["gpu_used"] = value.GpuUsed
 		acc.AddFields(lotusSealingWorkers, workerMeasurements, nil)
+	}
+
+	for key, value := range minerMetrics.WorkerJobs {
+		for _, job := range value {
+			jobMeasurements := map[string]interface{}{}
+			jobMeasurements["job_id"] = job.ID.ID.String()
+			jobMeasurements["worker_name"] = key.String()
+			jobMeasurements["sector"] = job.Sector.Number.String()
+			jobMeasurements["miner_id"] = job.Sector.Miner.String()
+			jobMeasurements["run_wait"] = job.RunWait
+			jobMeasurements["start"] = job.Start.String()
+			jobMeasurements["task"] = job.Task.Short()
+			acc.AddFields(lotusSealingJobs, jobMeasurements, nil)
+		}
+
 	}
 	return nil
 }
