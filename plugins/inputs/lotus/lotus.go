@@ -91,7 +91,7 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 
 	for key, value := range minerMetrics.WorkerStats {
 		workerMeasurements := map[string]interface{}{}
-		workerMeasurements["id"] = key
+		workerMeasurements["worker_id"] = key.String()
 		workerMeasurements["name"] = value.Info.Hostname
 		workerMeasurements["cpu_use"] = value.CpuUse
 		workerMeasurements["mem_physical"] = value.Info.Resources.MemPhysical
