@@ -9,6 +9,8 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	jsonrpc "github.com/filecoin-project/go-jsonrpc"
 	lotusapi "github.com/filecoin-project/lotus/api"
+	"github.com/filecoin-project/lotus/extern/sector-storage/storiface"
+	"github.com/google/uuid"
 )
 
 type Miner struct {
@@ -23,12 +25,24 @@ func (m Miner) FetchMetrics() MinerMetrics {
 
 	marketDeals, err := m.api.MarketListDeals(context.Background())
 	if err != nil {
-		log.Fatalf("callung MarketListDeals: %s", err)
+		log.Fatalf("calling MarketListDeals: %s", err)
+	}
+
+	workerStats, err := m.api.WorkerStats(context.Background())
+	if err != nil {
+		log.Fatalf("calling WorkerStats: %s", err)
+	}
+
+	workerJobs, err := m.api.WorkerJobs(context.Background())
+	if err != nil {
+		log.Fatalf("calling WorkerJobs: %s", err)
 	}
 
 	return MinerMetrics{
 		SectorSummary: sectorSummary,
 		MarketDeals:   marketDeals,
+		WorkerStats:   workerStats,
+		WorkerJobs:    workerJobs,
 	}
 }
 
@@ -55,6 +69,8 @@ func NewMiner(addr string, token string) (*Miner, error) {
 }
 
 type MinerMetrics struct {
+	WorkerJobs     map[uuid.UUID][]storiface.WorkerJob
+	WorkerStats    map[uuid.UUID]storiface.WorkerStats
 	SectorSummary  map[lotusapi.SectorState]int
 	MarketDeals    []lotusapi.MarketDeal
 	RetrievalDeals []retrievalmarket.ProviderDealState
