@@ -9,6 +9,7 @@ import (
 
 const pluginName string = "telegraf-input-lotus"
 const lotusMeasurement string = "lotus"
+const lotusSealingWorkers string = "lotus_sealing_workers"
 
 type LotusInput struct {
 	DaemonAddr  string          `toml:"daemonAddr"`
@@ -86,9 +87,19 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 	measurements["sectorsTotal"] = sectorsTotal
 
 	// TODO: Extract argument to struct
-	acc.AddFields(lotusMeasurement, measurements,
-		nil)
+	acc.AddFields(lotusMeasurement, measurements, nil)
 
+	for key, value := range minerMetrics.WorkerStats {
+		workerMeasurements := map[string]interface{}{}
+		workerMeasurements["id"] = key
+		workerMeasurements["name"] = value.Info.Hostname
+		workerMeasurements["cpu_use"] = value.CpuUse
+		workerMeasurements["mem_physical"] = value.Info.Resources.MemPhysical
+		workerMeasurements["mem_used"] = value.Info.Resources.MemUsed
+		workerMeasurements["mem_swap_used"] = value.Info.Resources.MemSwapUsed
+		workerMeasurements["gpu_used"] = value.GpuUsed
+		acc.AddFields(lotusSealingWorkers, workerMeasurements, nil)
+	}
 	return nil
 }
 
