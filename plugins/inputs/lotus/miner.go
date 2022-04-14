@@ -45,7 +45,7 @@ func (m Miner) FetchMetrics() MinerMetrics {
 		log.Printf("calling StorageList: %s", err)
 	}
 	storageStats := map[stores.ID]fsutil.FsStat{}
-	for id, _ := range storageList {
+	for id := range storageList {
 		stat, err := m.api.StorageStat(context.Background(), id)
 		if err != nil {
 			log.Printf("calling StorageStat: %s", err)
