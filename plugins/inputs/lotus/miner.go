@@ -22,33 +22,33 @@ type Miner struct {
 func (m Miner) FetchMetrics() MinerMetrics {
 	sectorSummary, err := m.api.SectorsSummary(context.Background())
 	if err != nil {
-		log.Fatalf("calling sectors summary: %s", err)
+		log.Printf("calling sectors summary: %s", err)
 	}
 
 	marketDeals, err := m.api.MarketListDeals(context.Background())
 	if err != nil {
-		log.Fatalf("calling MarketListDeals: %s", err)
+		log.Printf("calling MarketListDeals: %s", err)
 	}
 
 	workerStats, err := m.api.WorkerStats(context.Background())
 	if err != nil {
-		log.Fatalf("calling WorkerStats: %s", err)
+		log.Printf("calling WorkerStats: %s", err)
 	}
 
 	workerJobs, err := m.api.WorkerJobs(context.Background())
 	if err != nil {
-		log.Fatalf("calling WorkerJobs: %s", err)
+		log.Printf("calling WorkerJobs: %s", err)
 	}
 
 	storageList, err := m.api.StorageList(context.Background())
 	if err != nil {
-		log.Fatalf("calling StorageList: %s", err)
+		log.Printf("calling StorageList: %s", err)
 	}
 	storageStats := map[stores.ID]fsutil.FsStat{}
 	for id, _ := range storageList {
 		stat, err := m.api.StorageStat(context.Background(), id)
 		if err != nil {
-			log.Fatalf("calling StorageStat: %s", err)
+			log.Printf("calling StorageStat: %s", err)
 		}
 		storageStats[id] = stat
 	}
