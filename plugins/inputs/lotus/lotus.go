@@ -11,6 +11,7 @@ const pluginName string = "telegraf-input-lotus"
 const lotusMeasurement string = "lotus"
 const lotusSealingWorkers string = "lotus_sealing_workers"
 const lotusSealingJobs string = "lotus_sealing_jobs"
+const lotusStorageStats string = "lotus_storage_stats"
 
 type LotusInput struct {
 	DaemonAddr  string          `toml:"daemonAddr"`
@@ -117,6 +118,18 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 			acc.AddFields(lotusSealingJobs, jobMeasurements, nil)
 		}
 
+	}
+
+	for key, stat := range minerMetrics.StorageStats {
+		storageMeasurments := map[string]interface{}{}
+		storageMeasurments["storage_id"] = key
+		storageMeasurments["available"] = stat.Available
+		storageMeasurments["capacity"] = stat.Capacity
+		storageMeasurments["fs_available"] = stat.FSAvailable
+		storageMeasurments["max"] = stat.Max
+		storageMeasurments["reserved"] = stat.Reserved
+		storageMeasurments["used"] = stat.Used
+		acc.AddFields(lotusStorageStats, storageMeasurments, nil)
 	}
 	return nil
 }

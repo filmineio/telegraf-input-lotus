@@ -9,6 +9,8 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	jsonrpc "github.com/filecoin-project/go-jsonrpc"
 	lotusapi "github.com/filecoin-project/lotus/api"
+	"github.com/filecoin-project/lotus/extern/sector-storage/fsutil"
+	"github.com/filecoin-project/lotus/extern/sector-storage/stores"
 	"github.com/filecoin-project/lotus/extern/sector-storage/storiface"
 	"github.com/google/uuid"
 )
@@ -38,11 +40,24 @@ func (m Miner) FetchMetrics() MinerMetrics {
 		log.Fatalf("calling WorkerJobs: %s", err)
 	}
 
+	storageList, err := m.api.StorageList(context.Background())
+	if err != nil {
+		log.Fatalf("calling StorageList: %s", err)
+	}
+	storageStats := map[stores.ID]fsutil.FsStat{}
+	for id, _ := range storageList {
+		stat, err := m.api.StorageStat(context.Background(), id)
+		if err != nil {
+			log.Fatalf("calling StorageStat: %s", err)
+		}
+		storageStats[id] = stat
+	}
 	return MinerMetrics{
 		SectorSummary: sectorSummary,
 		MarketDeals:   marketDeals,
 		WorkerStats:   workerStats,
 		WorkerJobs:    workerJobs,
+		StorageStats:  storageStats,
 	}
 }
 
@@ -71,6 +86,7 @@ func NewMiner(addr string, token string) (*Miner, error) {
 type MinerMetrics struct {
 	WorkerJobs     map[uuid.UUID][]storiface.WorkerJob
 	WorkerStats    map[uuid.UUID]storiface.WorkerStats
+	StorageStats   map[stores.ID]fsutil.FsStat
 	SectorSummary  map[lotusapi.SectorState]int
 	MarketDeals    []lotusapi.MarketDeal
 	RetrievalDeals []retrievalmarket.ProviderDealState
