@@ -9,6 +9,9 @@ import (
 
 const pluginName string = "telegraf-input-lotus"
 const lotusMeasurement string = "lotus"
+const lotusSealingWorkers string = "lotus_sealing_workers"
+const lotusSealingJobs string = "lotus_sealing_jobs"
+const lotusStorageStats string = "lotus_storage_stats"
 
 type LotusInput struct {
 	DaemonAddr  string          `toml:"daemonAddr"`
@@ -86,9 +89,48 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 	measurements["sectorsTotal"] = sectorsTotal
 
 	// TODO: Extract argument to struct
-	acc.AddFields(lotusMeasurement, measurements,
-		nil)
+	acc.AddFields(lotusMeasurement, measurements, nil)
+	workerIDtoNameMap := map[string]string{}
+	for key, value := range minerMetrics.WorkerStats {
+		workerMeasurements := map[string]interface{}{}
+		workerMeasurements["worker_id"] = key.String()
+		workerMeasurements["name"] = value.Info.Hostname
+		workerIDtoNameMap[key.String()] = value.Info.Hostname
+		workerMeasurements["cpu_use"] = value.CpuUse
+		workerMeasurements["mem_physical"] = value.Info.Resources.MemPhysical
+		workerMeasurements["mem_used"] = value.Info.Resources.MemUsed
+		workerMeasurements["mem_swap_used"] = value.Info.Resources.MemSwapUsed
+		workerMeasurements["gpu_used"] = value.GpuUsed
+		acc.AddFields(lotusSealingWorkers, workerMeasurements, nil)
+	}
 
+	for key, value := range minerMetrics.WorkerJobs {
+		for _, job := range value {
+			jobMeasurements := map[string]interface{}{}
+			jobMeasurements["job_id"] = job.ID.ID.String()
+			jobMeasurements["worker_id"] = key.String()
+			jobMeasurements["worker_name"] = workerIDtoNameMap[key.String()]
+			jobMeasurements["sector"] = job.Sector.Number.String()
+			jobMeasurements["miner_id"] = job.Sector.Miner.String()
+			jobMeasurements["run_wait"] = job.RunWait
+			jobMeasurements["start"] = job.Start.String()
+			jobMeasurements["task"] = job.Task.Short()
+			acc.AddFields(lotusSealingJobs, jobMeasurements, nil)
+		}
+
+	}
+
+	for key, stat := range minerMetrics.StorageStats {
+		storageMeasurments := map[string]interface{}{}
+		storageMeasurments["storage_id"] = string(key)
+		storageMeasurments["available"] = stat.Available
+		storageMeasurments["capacity"] = stat.Capacity
+		storageMeasurments["fs_available"] = stat.FSAvailable
+		storageMeasurments["max"] = stat.Max
+		storageMeasurments["reserved"] = stat.Reserved
+		storageMeasurments["used"] = stat.Used
+		acc.AddFields(lotusStorageStats, storageMeasurments, nil)
+	}
 	return nil
 }
 
