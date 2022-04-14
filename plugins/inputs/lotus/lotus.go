@@ -122,7 +122,7 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 
 	for key, stat := range minerMetrics.StorageStats {
 		storageMeasurments := map[string]interface{}{}
-		storageMeasurments["storage_id"] = key
+		storageMeasurments["storage_id"] = string(key)
 		storageMeasurments["available"] = stat.Available
 		storageMeasurments["capacity"] = stat.Capacity
 		storageMeasurments["fs_available"] = stat.FSAvailable
