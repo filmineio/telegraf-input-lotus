@@ -135,13 +135,14 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 		storageMeasurments["max"] = stat.Max
 		storageMeasurments["reserved"] = stat.Reserved
 		storageMeasurments["used"] = stat.Used
-		acc.AddFields(lotusStorageStats, storageMeasurments, map[string]string{})
+		acc.AddFields(lotusStorageStats, storageMeasurments, tags)
 	}
 
 	for key, info := range minerMetrics.StorageInfos {
 		storageMeasurments := map[string]interface{}{}
-		storageMeasurments["storage_id"] = string(key)
 		storageMeasurments["storage_info_id"] = info.ID
+		tags := map[string]string{}
+		tags["storage_id"] = string(key)
 		for index, url := range info.URLs {
 			storageMeasurments[fmt.Sprintf("url_%d", index)] = url
 		}
@@ -151,7 +152,7 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 		for index, allowed_to := range info.AllowTo {
 			storageMeasurments[fmt.Sprintf("allowed_to_%d", index)] = allowed_to
 		}
-		acc.AddFields(lotusStorageInfos, storageMeasurments, nil)
+		acc.AddFields(lotusStorageInfos, storageMeasurments, tags)
 	}
 	return nil
 }
