@@ -45,12 +45,18 @@ func (m Miner) FetchMetrics() MinerMetrics {
 		log.Printf("calling StorageList: %s", err)
 	}
 	storageStats := map[stores.ID]fsutil.FsStat{}
+	storageInfos := map[stores.ID]stores.StorageInfo{}
 	for id := range storageList {
 		stat, err := m.api.StorageStat(context.Background(), id)
 		if err != nil {
 			log.Printf("calling StorageStat: %s", err)
 		}
 		storageStats[id] = stat
+		info, err := m.api.StorageInfo(context.Background(), id)
+		if err != nil {
+			log.Printf("calling StorageInfo: %s", err)
+		}
+		storageInfos[id] = info
 	}
 	return MinerMetrics{
 		SectorSummary: sectorSummary,
@@ -58,6 +64,7 @@ func (m Miner) FetchMetrics() MinerMetrics {
 		WorkerStats:   workerStats,
 		WorkerJobs:    workerJobs,
 		StorageStats:  storageStats,
+		StorageInfos:  storageInfos,
 	}
 }
 
@@ -87,6 +94,7 @@ type MinerMetrics struct {
 	WorkerJobs     map[uuid.UUID][]storiface.WorkerJob
 	WorkerStats    map[uuid.UUID]storiface.WorkerStats
 	StorageStats   map[stores.ID]fsutil.FsStat
+	StorageInfos   map[stores.ID]stores.StorageInfo
 	SectorSummary  map[lotusapi.SectorState]int
 	MarketDeals    []lotusapi.MarketDeal
 	RetrievalDeals []retrievalmarket.ProviderDealState
