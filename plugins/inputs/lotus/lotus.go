@@ -13,6 +13,7 @@ const lotusSealingWorkers string = "lotus_sealing_workers"
 const lotusSealingJobs string = "lotus_sealing_jobs"
 const lotusStorageStats string = "lotus_storage_stats"
 const lotusStorageInfos string = "lotus_storage_infos"
+const lotusStorageSectors string = "lotus_storage_sectors"
 
 type LotusInput struct {
 	DaemonAddr  string          `toml:"daemonAddr"`
@@ -136,6 +137,14 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 		storageMeasurments["reserved"] = stat.Reserved
 		storageMeasurments["used"] = stat.Used
 		acc.AddFields(lotusStorageStats, storageMeasurments, tags)
+	}
+
+	for key, sectors := range minerMetrics.StorageSectors {
+		storageMeasurments := map[string]interface{}{}
+		tags := map[string]string{}
+		tags["storage_id"] = string(key)
+		storageMeasurments["sectors"] = sectors
+		acc.AddFields(lotusStorageSectors, storageMeasurments, tags)
 	}
 
 	for key, info := range minerMetrics.StorageInfos {
