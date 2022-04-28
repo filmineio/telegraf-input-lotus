@@ -109,6 +109,16 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 		acc.AddFields(lotusSealingWorkers, workerMeasurements, tags)
 	}
 
+	sectorGroupMap := map[int]string{}
+	for key, sectorArray := range minerMetrics.StorageSectors {
+		for _, decl := range sectorArray {
+			groups := minerMetrics.StorageInfos[key].Groups
+			if len(groups) > 0 {
+				sectorGroupMap[int(decl.Number)] = groups[0]
+			}
+		}
+	}
+
 	for key, value := range minerMetrics.WorkerJobs {
 		for _, job := range value {
 			jobMeasurements := map[string]interface{}{}
@@ -118,6 +128,10 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 			tags["job_id"] = job.ID.ID.String()
 			tags["sector"] = job.Sector.Number.String()
 			tags["miner_id"] = job.Sector.Miner.String()
+			group, exist := sectorGroupMap[int(job.Sector.Number)]
+			if exist {
+				tags["group"] = group
+			}
 			jobMeasurements["run_wait"] = job.RunWait
 			jobMeasurements["start"] = job.Start.String()
 			jobMeasurements["task"] = job.Task.Short()
@@ -137,14 +151,6 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 		storageMeasurments["reserved"] = stat.Reserved
 		storageMeasurments["used"] = stat.Used
 		acc.AddFields(lotusStorageStats, storageMeasurments, tags)
-	}
-
-	for key, sectors := range minerMetrics.StorageSectors {
-		storageMeasurments := map[string]interface{}{}
-		tags := map[string]string{}
-		tags["storage_id"] = string(key)
-		storageMeasurments["sectors"] = sectors
-		acc.AddFields(lotusStorageSectors, storageMeasurments, tags)
 	}
 
 	for key, info := range minerMetrics.StorageInfos {

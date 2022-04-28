@@ -3,10 +3,8 @@ package lotus
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	jsonrpc "github.com/filecoin-project/go-jsonrpc"
@@ -19,12 +17,6 @@ import (
 
 type Miner struct {
 	api lotusapi.StorageMinerStruct
-}
-
-func arrayToString(a []int, delim string) string {
-	return strings.Trim(strings.Replace(fmt.Sprint(a), " ", delim, -1), "[]")
-	//return strings.Trim(strings.Join(strings.Split(fmt.Sprint(a), " "), delim), "[]")
-	//return strings.Trim(strings.Join(strings.Fields(fmt.Sprint(a)), delim), "[]")
 }
 
 func (m Miner) FetchMetrics() MinerMetrics {
@@ -54,13 +46,7 @@ func (m Miner) FetchMetrics() MinerMetrics {
 	}
 	storageStats := map[stores.ID]fsutil.FsStat{}
 	storageInfos := map[stores.ID]stores.StorageInfo{}
-	storageSectors := map[stores.ID]string{}
-	for id, declArray := range storageList {
-		sectorsArray := []int{}
-		for _, decl := range declArray {
-			sectorsArray = append(sectorsArray, int(decl.SectorID.Number))
-		}
-		storageSectors[id] = arrayToString(sectorsArray, ",")
+	for id := range storageList {
 		stat, err := m.api.StorageStat(context.Background(), id)
 		if err != nil {
 			log.Printf("calling StorageStat: %s", err)
@@ -79,7 +65,7 @@ func (m Miner) FetchMetrics() MinerMetrics {
 		WorkerJobs:     workerJobs,
 		StorageStats:   storageStats,
 		StorageInfos:   storageInfos,
-		StorageSectors: storageSectors,
+		StorageSectors: storageList,
 	}
 }
 
@@ -111,7 +97,7 @@ type MinerMetrics struct {
 	StorageStats   map[stores.ID]fsutil.FsStat
 	StorageInfos   map[stores.ID]stores.StorageInfo
 	SectorSummary  map[lotusapi.SectorState]int
-	StorageSectors map[stores.ID]string
+	StorageSectors map[stores.ID][]stores.Decl
 	MarketDeals    []lotusapi.MarketDeal
 	RetrievalDeals []retrievalmarket.ProviderDealState
 }
