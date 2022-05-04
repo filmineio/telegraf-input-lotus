@@ -6,10 +6,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	jsonrpc "github.com/filecoin-project/go-jsonrpc"
 	lotusapi "github.com/filecoin-project/lotus/api"
-	"github.com/filecoin-project/lotus/extern/sector-storage/fsutil"
 	"github.com/filecoin-project/lotus/extern/sector-storage/stores"
 	"github.com/filecoin-project/lotus/extern/sector-storage/storiface"
 	"github.com/google/uuid"
@@ -23,11 +21,6 @@ func (m Miner) FetchMetrics() MinerMetrics {
 	sectorSummary, err := m.api.SectorsSummary(context.Background())
 	if err != nil {
 		log.Printf("calling sectors summary: %s", err)
-	}
-
-	marketDeals, err := m.api.MarketListDeals(context.Background())
-	if err != nil {
-		log.Printf("calling MarketListDeals: %s", err)
 	}
 
 	workerStats, err := m.api.WorkerStats(context.Background())
@@ -44,14 +37,8 @@ func (m Miner) FetchMetrics() MinerMetrics {
 	if err != nil {
 		log.Printf("calling StorageList: %s", err)
 	}
-	storageStats := map[stores.ID]fsutil.FsStat{}
 	storageInfos := map[stores.ID]stores.StorageInfo{}
 	for id := range storageList {
-		stat, err := m.api.StorageStat(context.Background(), id)
-		if err != nil {
-			log.Printf("calling StorageStat: %s", err)
-		}
-		storageStats[id] = stat
 		info, err := m.api.StorageInfo(context.Background(), id)
 		if err != nil {
 			log.Printf("calling StorageInfo: %s", err)
@@ -60,10 +47,8 @@ func (m Miner) FetchMetrics() MinerMetrics {
 	}
 	return MinerMetrics{
 		SectorSummary:  sectorSummary,
-		MarketDeals:    marketDeals,
 		WorkerStats:    workerStats,
 		WorkerJobs:     workerJobs,
-		StorageStats:   storageStats,
 		StorageInfos:   storageInfos,
 		StorageSectors: storageList,
 	}
@@ -94,10 +79,7 @@ func NewMiner(addr string, token string) (*Miner, error) {
 type MinerMetrics struct {
 	WorkerJobs     map[uuid.UUID][]storiface.WorkerJob
 	WorkerStats    map[uuid.UUID]storiface.WorkerStats
-	StorageStats   map[stores.ID]fsutil.FsStat
-	StorageInfos   map[stores.ID]stores.StorageInfo
 	SectorSummary  map[lotusapi.SectorState]int
 	StorageSectors map[stores.ID][]stores.Decl
-	MarketDeals    []lotusapi.MarketDeal
-	RetrievalDeals []retrievalmarket.ProviderDealState
+	StorageInfos   map[stores.ID]stores.StorageInfo
 }

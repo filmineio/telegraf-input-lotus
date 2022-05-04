@@ -11,9 +11,6 @@ const pluginName string = "telegraf-input-lotus"
 const lotusMeasurement string = "lotus"
 const lotusSealingWorkers string = "lotus_sealing_workers"
 const lotusSealingJobs string = "lotus_sealing_jobs"
-const lotusStorageStats string = "lotus_storage_stats"
-const lotusStorageInfos string = "lotus_storage_infos"
-const lotusStorageSectors string = "lotus_storage_sectors"
 
 type LotusInput struct {
 	DaemonAddr  string          `toml:"daemonAddr"`
@@ -75,13 +72,11 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 	}
 
 	measurements := map[string]interface{}{
-		"epoch":          daemonMetrics.Status.SyncStatus.Epoch,
-		"behind":         daemonMetrics.Status.SyncStatus.Behind,
-		"messagePeers":   daemonMetrics.Status.PeerStatus.PeersToPublishMsgs,
-		"blockPeers":     daemonMetrics.Status.PeerStatus.PeersToPublishBlocks,
-		"marketDeals":    len(minerMetrics.MarketDeals),
-		"retrievalDeals": len(minerMetrics.RetrievalDeals),
-		"balance":        daemonMetrics.Balance}
+		"epoch":        daemonMetrics.Status.SyncStatus.Epoch,
+		"behind":       daemonMetrics.Status.SyncStatus.Behind,
+		"messagePeers": daemonMetrics.Status.PeerStatus.PeersToPublishMsgs,
+		"blockPeers":   daemonMetrics.Status.PeerStatus.PeersToPublishBlocks,
+		"balance":      daemonMetrics.Balance}
 
 	sectorsTotal := 0
 	for sectorState, count := range minerMetrics.SectorSummary {
@@ -140,35 +135,6 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 
 	}
 
-	for key, stat := range minerMetrics.StorageStats {
-		storageMeasurments := map[string]interface{}{}
-		tags := map[string]string{}
-		tags["storage_id"] = string(key)
-		storageMeasurments["available"] = stat.Available
-		storageMeasurments["capacity"] = stat.Capacity
-		storageMeasurments["fs_available"] = stat.FSAvailable
-		storageMeasurments["max"] = stat.Max
-		storageMeasurments["reserved"] = stat.Reserved
-		storageMeasurments["used"] = stat.Used
-		acc.AddFields(lotusStorageStats, storageMeasurments, tags)
-	}
-
-	for key, info := range minerMetrics.StorageInfos {
-		storageMeasurments := map[string]interface{}{}
-		storageMeasurments["storage_info_id"] = info.ID
-		tags := map[string]string{}
-		tags["storage_id"] = string(key)
-		for index, url := range info.URLs {
-			storageMeasurments[fmt.Sprintf("url_%d", index)] = url
-		}
-		for index, group := range info.Groups {
-			storageMeasurments[fmt.Sprintf("group_%d", index)] = group
-		}
-		for index, allowed_to := range info.AllowTo {
-			storageMeasurments[fmt.Sprintf("allowed_to_%d", index)] = allowed_to
-		}
-		acc.AddFields(lotusStorageInfos, storageMeasurments, tags)
-	}
 	return nil
 }
 
