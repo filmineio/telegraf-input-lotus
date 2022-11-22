@@ -67,8 +67,7 @@ func NewDaemon(addr string, token string) (*Daemon, error) {
 	var daemonApi lotusapi.FullNodeStruct
 	_, err := jsonrpc.NewMergeClient(context.Background(), "ws://"+addr+"/rpc/v0", "Filecoin", []interface{}{&daemonApi.Internal, &daemonApi.CommonStruct.Internal}, headers)
 	if err != nil {
-		log.Printf("addr: %s", addr)
-		log.Fatalf("connecting with lotus-daemon failed: %s", err)
+		log.Fatalf("failed to connect to lotus daemon at %s with error: %s", addr, err)
 	}
 
 	return &Daemon{
