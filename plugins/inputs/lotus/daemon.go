@@ -54,18 +54,20 @@ func (d Daemon) FetchMetrics() DaemonMetrics {
 	}
 }
 
-func NewDaemon(addr string, token string) (*Daemon, error) {
+func NewDaemon(addr string, token string, apiVersion string) (*Daemon, error) {
 	if addr == "" {
 		return nil, errors.New("addr can't be an empty string")
 	}
 	if token == "" {
 		return nil, errors.New("token can't be an empty string")
 	}
-
+	if apiVersion == "" {
+		apiVersion = "v0"
+	}
 	headers := http.Header{"Authorization": []string{"Bearer " + token}}
 
 	var daemonApi lotusapi.FullNodeStruct
-	_, err := jsonrpc.NewMergeClient(context.Background(), "ws://"+addr+"/rpc/v0", "Filecoin", []interface{}{&daemonApi.Internal, &daemonApi.CommonStruct.Internal}, headers)
+	_, err := jsonrpc.NewMergeClient(context.Background(), "ws://"+addr+"/rpc/"+apiVersion, "Filecoin", []interface{}{&daemonApi.Internal, &daemonApi.CommonStruct.Internal}, headers)
 	if err != nil {
 		log.Fatalf("failed to connect to lotus daemon at %s with error: %s", addr, err)
 	}

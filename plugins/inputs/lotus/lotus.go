@@ -16,6 +16,7 @@ const lotusStorageStats string = "lotus_storage_stats"
 type LotusInput struct {
 	DaemonAddr  string          `toml:"daemonAddr"`
 	DaemonToken string          `toml:"daemonToken"`
+	ApiVersion  string          `toml:"daemonApiVersion"`
 	MinerAddr   string          `toml:"minerAddr"`
 	MinerToken  string          `toml:"minerToken"`
 	Log         telegraf.Logger `toml:"-"`
@@ -34,6 +35,8 @@ func (s *LotusInput) SampleConfig() string {
   daemonAddr = 127.0.0.1:1234
 	## Lotus daemon API token (example)
 	daemonToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJBbGxvdyI6WyJyZWFkIl19.aneYo3I_Ts45E36uBcLNNK61q2aKj3p462fByqnam1s
+	## Lotus daemon API Version (default: v0)
+	daemonApiVersion = "v1"
   ## Lotus miner listen address
   minerAddr = 127.0.0.1:1234
 	## Lotus miner API token (example)
@@ -43,7 +46,7 @@ func (s *LotusInput) SampleConfig() string {
 
 func (s *LotusInput) Init() error {
 	if s.DaemonAddr != "" {
-		daemon, err := NewDaemon(s.DaemonAddr, s.DaemonToken)
+		daemon, err := NewDaemon(s.DaemonAddr, s.DaemonToken, s.ApiVersion)
 		if err != nil {
 			return err
 		}
