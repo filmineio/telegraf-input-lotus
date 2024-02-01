@@ -76,13 +76,11 @@ func (s *LotusInput) Gather(acc telegraf.Accumulator) error {
 	}
 
 	measurements := map[string]interface{}{
-		"epoch":          daemonMetrics.Status.SyncStatus.Epoch,
-		"behind":         daemonMetrics.Status.SyncStatus.Behind,
-		"messagePeers":   daemonMetrics.Status.PeerStatus.PeersToPublishMsgs,
-		"blockPeers":     daemonMetrics.Status.PeerStatus.PeersToPublishBlocks,
-		"marketDeals":    len(minerMetrics.MarketDeals),
-		"retrievalDeals": len(minerMetrics.RetrievalDeals),
-		"balance":        daemonMetrics.Balance}
+		"epoch":        daemonMetrics.Status.SyncStatus.Epoch,
+		"behind":       daemonMetrics.Status.SyncStatus.Behind,
+		"messagePeers": daemonMetrics.Status.PeerStatus.PeersToPublishMsgs,
+		"blockPeers":   daemonMetrics.Status.PeerStatus.PeersToPublishBlocks,
+		"balance":      daemonMetrics.Balance}
 
 	sectorsTotal := 0
 	for sectorState, count := range minerMetrics.SectorSummary {
